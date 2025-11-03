@@ -355,99 +355,6 @@ class SwinDualHeadModel(nn.Module):
 
         return out_cirrhosis.squeeze(1), out_fibrosis.squeeze(1)
 
-# --- Patch Embedding (Conv-based) ---  run_20250710_100449
-# class PatchEmbed3D(nn.Module):
-#     def __init__(self, in_channels=1, embed_dim=96, patch_size=4):
-#         super().__init__()
-#         self.proj = nn.Conv3d(in_channels, embed_dim, kernel_size=patch_size, stride=patch_size)
-#         self.norm = nn.LayerNorm(embed_dim)
-#
-#     def forward(self, x):
-#         x = self.proj(x)  # [B, C, D, H, W] -> [B, embed_dim, D', H', W']
-#         B, C, D, H, W = x.shape
-#         x = x.flatten(2).transpose(1, 2)  # [B, D'*H'*W', embed_dim]
-#         x = self.norm(x)
-#         return x, (D, H, W)
-#
-# # --- Swin Transformer Block ---
-# class SwinBlock3D(nn.Module):
-#     def __init__(self, dim, num_heads=4, mlp_ratio=4.0):
-#         super().__init__()
-#         self.norm1 = nn.LayerNorm(dim)
-#         self.attn = nn.MultiheadAttention(embed_dim=dim, num_heads=num_heads, batch_first=True)
-#         self.norm2 = nn.LayerNorm(dim)
-#         self.mlp = nn.Sequential(
-#             nn.Linear(dim, int(dim * mlp_ratio)),
-#             nn.GELU(),
-#             nn.Linear(int(dim * mlp_ratio), dim),
-#         )
-#
-#     def forward(self, x):
-#         x_res = x
-#         x = self.norm1(x)
-#         x, _ = self.attn(x, x, x)
-#         x = x + x_res
-#
-#         x_res = x
-#         x = self.norm2(x)
-#         x = self.mlp(x)
-#         x = x + x_res
-#         return x
-#
-# # --- Deeper SwinTiny3D Backbone ---
-# class SwinTiny3DDeep(nn.Module):
-#     def __init__(self, in_channels=1, embed_dim=96, depths=6, num_heads=4):
-#         super().__init__()
-#         self.patch_embed = PatchEmbed3D(in_channels, embed_dim)
-#         self.blocks = nn.Sequential(*[
-#             SwinBlock3D(embed_dim, num_heads=num_heads) for _ in range(depths)
-#         ])
-#         self.pool = nn.AdaptiveAvgPool1d(1)
-#
-#     def forward(self, x):
-#         x, _ = self.patch_embed(x)  # [B, N, C]
-#         x = self.blocks(x)
-#         x = x.transpose(1, 2)  # [B, C, N]
-#         x = self.pool(x).squeeze(-1)  # [B, C]
-#         return x
-#
-# # --- Dual Head Model with deeper backbone ---
-# class SwinDualHeadModel(nn.Module):
-#     def __init__(self, in_channels=1, embed_dim=96, num_heads=4):
-#         super().__init__()
-#         self.encoder_t1 = SwinTiny3DDeep(in_channels, embed_dim, depths=6, num_heads=num_heads)
-#         self.encoder_t2 = SwinTiny3DDeep(in_channels, embed_dim, depths=6, num_heads=num_heads)
-#         self.encoder_dwi = SwinTiny3DDeep(in_channels, embed_dim, depths=6, num_heads=num_heads)
-#
-#         self.head_cirrhosis = nn.Sequential(
-#             nn.Linear(embed_dim * 3, 128),
-#             nn.ReLU(),
-#             nn.Dropout(0.3),
-#             nn.Linear(128, 1)
-#         )
-#         self.head_fibrosis = nn.Sequential(
-#             nn.Linear(embed_dim * 3, 128),
-#             nn.ReLU(),
-#             nn.Dropout(0.3),
-#             nn.Linear(128, 1)
-#         )
-#
-#     def forward(self, x):
-#         t1 = x[:, 0:1, :, :, :]
-#         t2 = x[:, 1:2, :, :, :]
-#         dwi = x[:, 2:3, :, :, :]
-#
-#         f1 = self.encoder_t1(t1)
-#         f2 = self.encoder_t2(t2)
-#         f3 = self.encoder_dwi(dwi)
-#
-#         feat = torch.cat([f1, f2, f3], dim=1)
-#
-#         out_cirrhosis = self.head_cirrhosis(feat)
-#         out_fibrosis = self.head_fibrosis(feat)
-#         return out_cirrhosis.squeeze(1), out_fibrosis.squeeze(1)
-
-
 def train_epoch(model, loader, criterion, optimizer, device, task):
     model.train()
     losses, all_preds, all_labels = [], [], []
@@ -580,62 +487,6 @@ def main(train_dir, use_contrast=False, epochs=50, batch_size=4, val_split=0.1, 
     pd.DataFrame(history).to_csv(os.path.join(save_dir, f"log_{task}.csv"), index=False)
     print(f"\nBest {task.upper()} Model: AUC={best_auc:.4f}, ACC={best_acc:.4f}")
 
-import csv
-import os
-
-# def evaluate_one(model, loader, device, save_path="/data/sdd/LiQA/code/predictions.csv", task='cirrhosis'):
-#     model.eval()
-#     results = []
-#
-#     with torch.no_grad():
-#         for data in tqdm(loader, desc="Evaluating", leave=False):
-#             x, mask, case_ids = data
-#             x = x.to(device)
-#
-#             logits1, logits2 = model(x)
-
-#             probs_cirrhosis = torch.sigmoid(logits1).cpu().numpy()
-#             probs_fibrosis = torch.sigmoid(logits2).cpu().numpy()
-#
-#             for i in range(len(case_ids)):
-#                 case_id = case_ids[i]
-#                 setting = 'NonContrast'
-#
-#                 if task == 'cirrhosis':
-#                     prob = float(probs_cirrhosis[i])
-#                     results.append([case_id, setting, round(prob, 5)])
-#                 elif task == 'fibrosis':
-#                     prob = float(probs_fibrosis[i])
-#                     results.append([case_id, setting, round(prob, 5)])
-#                 else:
-#                     raise ValueError(f"Unknown task: {task}")
-#
-#     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-#     with open(save_path, mode="w", newline='') as f:
-#         writer = csv.writer(f)
-#         if task == 'cirrhosis':
-#             writer.writerow(["Case", "Setting", "Subtask1_prob_S4"])
-#         else:
-#             writer.writerow(["Case", "Setting", "Subtask2_prob_S1"])
-#         writer.writerows(results)
-#
-#     print(f"[✅ Saved] Predictions saved to: {save_path}")
-#
-#
-#
-#
-# def eva(ckpt_path,val_dir=None, batch_size=1, device_id=0,task = 'cirrhosis'):  
-#     device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
-#
-#     val_dataset = EVAMRIDataset(val_dir)
-#
-#     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-#
-#     model = SwinDualHeadModel().to(device)
-#     state_dict = torch.load(ckpt_path, map_location=device, weights_only=True)
-#     model.load_state_dict(state_dict)  
-#
-#     evaluate_one(model,val_loader,device,task)
 
 def evaluate_one(model, loader, device, save_path, task='cirrhosis'):
     model.eval()
@@ -716,21 +567,20 @@ def evaluate_dual_model_and_merge(
     print(f"[✅ Done] Final merged CSV saved to: {final_csv_path}")
 
 if __name__ == "__main__":
-    # main("/media/xinhong/data/2023SY/LiSF/data/LiQA_training_data", val_dir=None, test_dir=None,use_contrast=False, device_id=1, early_stop=False)  # 关闭早停
 
-    # main(r"/data/sdd/LiQA/Normalization",use_contrast=False, device_id=0,task = 'cirrhosis')  
-    # main(r"/data/sdd/LiQA/Normalization",use_contrast=False, device_id=0,task = 'fibrosis')  
+    main(r"/data/sdd/LiQA/Normalization",use_contrast=False, device_id=0,task = 'cirrhosis')  
+    main(r"/data/sdd/LiQA/Normalization",use_contrast=False, device_id=0,task = 'fibrosis')  
 
-    # eva(ckpt_path = '/data/sdd/LiQA/code/runs/c/best_model_cirrhosis.pth',val_dir='/data/sdd/LiQA/val_data_Normalization',task = 'cirrhosis')
-    # eva(ckpt_path = '/data/sdd/LiQA/code/runs/f/best_model_fibrosis.pth',val_dir='/data/sdd/LiQA/val_data_Normalization',task = 'fibrosis')
+    eva(ckpt_path = '/data/sdd/LiQA/code/runs/c/best_model_cirrhosis.pth',val_dir='/data/sdd/LiQA/val_data_Normalization',task = 'cirrhosis')
+    eva(ckpt_path = '/data/sdd/LiQA/code/runs/f/best_model_fibrosis.pth',val_dir='/data/sdd/LiQA/val_data_Normalization',task = 'fibrosis')
 
     
-    # evaluate_dual_model_and_merge(ckpt_cirrhosis_path = '/data/sdd/LiQA/code/runs/c/best_model_cirrhosis.pth',
-    # ckpt_fibrosis_path= '/data/sdd/LiQA/code/runs/f/best_model_fibrosis.pth',
-    # val_dir='/data/sdd/LiQA/val_data_Normalization',
-    # batch_size=1,
-    # device_id=0,
-    # final_csv_path="predictions.csv")
+    evaluate_dual_model_and_merge(ckpt_cirrhosis_path = '/data/sdd/LiQA/code/runs/c/best_model_cirrhosis.pth',
+    ckpt_fibrosis_path= '/data/sdd/LiQA/code/runs/f/best_model_fibrosis.pth',
+    val_dir='/data/sdd/LiQA/val_data_Normalization',
+    batch_size=1,
+    device_id=0,
+    final_csv_path="predictions.csv")
 
 
     evaluate_dual_model_and_merge(ckpt_cirrhosis_path = '/data/sdd/LiQA/code/runs/run_20250710_170529/best_model_cirrhosis.pth',
@@ -738,4 +588,5 @@ if __name__ == "__main__":
     val_dir='/data/sdd/LiQA/val_data_Normalization',
     batch_size=1,
     device_id=0,
+
     final_csv_path="predictions.csv")
