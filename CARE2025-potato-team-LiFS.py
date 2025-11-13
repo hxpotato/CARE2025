@@ -5,11 +5,10 @@
 #         Team Name: potato
 #         Affiliation: HuaQiao University
 #         Contributor：Xin Hong,Nao Wang,Ying Shi
-# =====================================================================
 
-# Version: v1.0.0
-# Last Updated: 2025-08-05
-# Copyright © 2025 potato Team
+#          Version: v1.0.0
+#          Last Updated: 2025-08-05
+#          Copyright © 2025 potato Team
 # This code is intended exclusively for research and competition use.
 # =====================================================================
 
@@ -591,4 +590,5 @@ if __name__ == "__main__":
     device_id=0,
 
     final_csv_path="predictions.csv")
+
 
