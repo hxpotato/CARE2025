@@ -4,6 +4,7 @@
 #         Website: https://zmic.org.cn/care_2025/
 #         Team Name: potato
 #         Affiliation: HuaQiao University
+#         Contributor：Xin Hong,Nao Wang,Ying Shi
 # =====================================================================
 
 # Version: v1.0.0
@@ -590,3 +591,4 @@ if __name__ == "__main__":
     device_id=0,
 
     final_csv_path="predictions.csv")
+
